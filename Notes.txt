@@ -1,0 +1,16 @@
+Jobs database:
+
+1.JobId
+2.RoleName
+3.RoleCategory
+4.CompanyName
+5.WorkEnv
+6.State
+7.Country
+8.City
+9.SalaryRange
+10.JobDescription
+11.ExperienceRequired
+12.JobType
+13.PostedDate
+14.Status
