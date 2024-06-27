@@ -37,9 +37,8 @@ router.get("/jobs", async (req, res) => {
 });
 
 // Create a new job
-router.post("/jobs", async (req, res) => {
+router.post('/jobs', async (req, res) => {
   const {
-    JobId,
     RoleName,
     RoleCategory,
     CompanyName,
@@ -47,15 +46,24 @@ router.post("/jobs", async (req, res) => {
     State,
     Country,
     City,
-    SalaryRange,
-    JobDescription,
+    SalaryLow,
+    SalaryHigh,
+    CompanyDescription,
+    Responsibilities,
+    Qualifications,
+    Benefits,
     ExperienceRequired,
     JobType,
     PostedDate,
+    Status
   } = req.body;
+
   try {
+    const lastJob = await Job.findOne().sort({ _id: -1 });
+    const newJobId = lastJob ? lastJob.JobId + 1 : 1;
+
     const newJob = new Job({
-      JobId,
+      JobId: newJobId,
       RoleName,
       RoleCategory,
       CompanyName,
@@ -63,19 +71,26 @@ router.post("/jobs", async (req, res) => {
       State,
       Country,
       City,
-      SalaryRange,
-      JobDescription,
+      SalaryLow,
+      SalaryHigh,
+      CompanyDescription,
+      Responsibilities,
+      Qualifications,
+      Benefits,
       ExperienceRequired,
       JobType,
       PostedDate,
+      Status
     });
+
     const job = await newJob.save();
     res.status(201).json(job);
   } catch (err) {
-    console.error("Error creating job:", err);
-    res.status(500).send("Internal Server Error");
+    console.error('Error creating job:', err);
+    res.status(500).send('Internal Server Error');
   }
 });
+
 
 // Search job titles
 router.get("/job-titles", async (req, res) => {
@@ -87,6 +102,19 @@ router.get("/job-titles", async (req, res) => {
     res.json(jobTitles);
   } catch (err) {
     console.error("Error fetching job titles:", err);
+    res.status(500).send("Internal Server Error");
+  }
+});
+
+router.get("/jobs/:jobId", async (req, res) => {
+  try {
+    const job = await Job.findOne({ JobId: parseInt(req.params.jobId) });
+    if (!job) {
+      return res.status(404).send("Job not found");
+    }
+    res.json(job);
+  } catch (err) {
+    console.error("Error fetching job:", err);
     res.status(500).send("Internal Server Error");
   }
 });
