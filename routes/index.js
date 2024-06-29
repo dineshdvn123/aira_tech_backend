@@ -12,16 +12,18 @@ const { Storage } = require('@google-cloud/storage');
 const secretFilePath = '/etc/secrets/keyFileName';
 const projectId = 'airatechresumestorage'; // Ensure this matches your GCP project ID
 
-let keyFilename;
 
-try {
-  keyFilename = JSON.parse(fs.readFileSync(secretFilePath, 'utf8'));
-} catch (err) {
-  console.error('Error reading or parsing secret file:', err);
-  process.exit(1); // Exit the process if there's an error
-}
+const gc = new Storage({ secretFilePath, projectId });
 
-const gc = new Storage({ keyFilename, projectId });
+gc.auth.getApplicationDefault((err, client) => {
+  if (err) {
+    console.error('Error authenticating Google Cloud client:', err);
+    // Handle error appropriately, e.g., exit process or return an error response
+  } else {
+    console.log('Google Cloud client authenticated successfully.');
+    // Proceed with using gc (Storage client) for your operations
+  }
+});
 
 const bucketName = 'aira_tech_bucket';
 const bucket = gc.bucket(bucketName);
