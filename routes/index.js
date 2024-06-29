@@ -13,8 +13,10 @@ const secretFilePath = '/etc/secrets/keyFileName';
 const projectId = 'airatechresumestorage'; // Ensure this matches your GCP project ID
 
 
-const gc = new Storage({ secretFilePath, projectId });
-
+const gc = new Storage({
+  projectId: projectId,
+  keyFilename: secretFilePath,
+});
 
 const bucketName = 'aira_tech_bucket';
 const bucket = gc.bucket(bucketName);
