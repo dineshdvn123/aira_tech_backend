@@ -1,17 +1,29 @@
 const express = require("express");
 const router = express.Router();
 const multer = require('multer');
+const fs = require('fs');
 const path = require('path');
 const Job = require("../models/jobs");
 const Applicant = require("../models/applicants"); 
 
 const { Storage } = require('@google-cloud/storage');
-  const keyFilename = './airatechresumestorage-be0f1e0739c8.json';
-  const projectId = 'airatechresumestorage'
+
+// Ensure this path matches the Render secret path format
+const secretFilePath = '/etc/secrets/keyFileName';
+const projectId = 'airatechresumestorage'; // Ensure this matches your GCP project ID
+
+let keyFilename;
+
+try {
+  keyFilename = JSON.parse(fs.readFileSync(secretFilePath, 'utf8'));
+} catch (err) {
+  console.error('Error reading or parsing secret file:', err);
+  process.exit(1); // Exit the process if there's an error
+}
 
 const gc = new Storage({ keyFilename, projectId });
 
-const bucketName = 'aira_tech_bucket'; 
+const bucketName = 'aira_tech_bucket';
 const bucket = gc.bucket(bucketName);
 
 const storage = multer.memoryStorage();
