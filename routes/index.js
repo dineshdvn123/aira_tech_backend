@@ -15,15 +15,6 @@ const projectId = 'airatechresumestorage'; // Ensure this matches your GCP proje
 
 const gc = new Storage({ secretFilePath, projectId });
 
-gc.auth.getApplicationDefault((err, client) => {
-  if (err) {
-    console.error('Error authenticating Google Cloud client:', err);
-    // Handle error appropriately, e.g., exit process or return an error response
-  } else {
-    console.log('Google Cloud client authenticated successfully.');
-    // Proceed with using gc (Storage client) for your operations
-  }
-});
 
 const bucketName = 'aira_tech_bucket';
 const bucket = gc.bucket(bucketName);
