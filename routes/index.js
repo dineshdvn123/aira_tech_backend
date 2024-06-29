@@ -1,6 +1,21 @@
 const express = require("express");
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
 const Job = require("../models/jobs");
+const Applicant = require("../models/applicants"); 
+
+const { Storage } = require('@google-cloud/storage');
+  const keyFilename = './airatechresumestorage-be0f1e0739c8.json';
+  const projectId = 'airatechresumestorage'
+
+const gc = new Storage({ keyFilename, projectId });
+
+const bucketName = 'aira_tech_bucket'; 
+const bucket = gc.bucket(bucketName);
+
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
 // Get all jobs with pagination and filters
 router.get("/jobs", async (req, res) => {
@@ -152,6 +167,66 @@ router.get("/locations", async (req, res) => {
     console.error("Error fetching locations:", err);
     res.status(500).send("Internal Server Error");
   }
+});
+
+router.post('/apply/:jobId', upload.single('resume'), async (req, res) => {
+  const { firstName, lastName, email, phone } = req.body;
+  const jobId = parseInt(req.params.jobId);
+
+  if (!req.file) {
+    return res.status(400).send({ message: "No resume file uploaded." });
+  }
+
+  const blob = bucket.file(Date.now() + '-' + req.file.originalname);
+  const blobStream = blob.createWriteStream({
+    resumable: false,
+  });
+
+  blobStream.on('error', (err) => {
+    console.error('Blob Stream Error:', err);
+    res.status(500).send({ message: 'Internal Server Error' });
+  });
+
+  blobStream.on('finish', async () => {
+    const resumeUrl = `https://storage.googleapis.com/${bucketName}/${blob.name}`;
+    
+    try {
+      const existingApplicant = await Applicant.findOne({ email, JobId: jobId });
+      if (existingApplicant) {
+        return res.status(400).send({ message: "You have already applied for this position. We'll be in touch soon." });
+      }
+
+      const newApplicant = new Applicant({
+        firstName,
+        lastName,
+        email,
+        phone,
+        resumeUrl,
+        JobId: jobId,
+      });
+
+      await newApplicant.save();
+
+      const job = await Job.findOne({ JobId: jobId });
+      if (!job) {
+        return res.status(404).send({ message: "Apologies! Looks like there is an issue. Please try again after some time." });
+      }
+      if (!job.applicants) {
+        job.applicants = []; // Initialize applicants array if it's not already initialized
+      }
+      job.applicants.push(newApplicant._id);
+      await job.save();
+
+      res.status(201).send({
+        message: "Thanks for applying! We'll review your application and contact you soon.",
+      });
+    } catch (error) {
+      console.error('Error applying for job:', error);
+      res.status(500).send({ message: 'Internal Server Error' });
+    }
+  });
+
+  blobStream.end(req.file.buffer);
 });
 
 module.exports = router;
