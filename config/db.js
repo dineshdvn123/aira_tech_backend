@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const connectDB = async () => {
   try {
     // await mongoose.connect('mongodb://localhost:27017/aira_tech_db', {
-      await mongoose.connect('mongodb+srv://dineshdvn123:T3x33jF25Sff5B12@cluster0.yzilrsr.mongodb.net/aira_tech_db?retryWrites=true&w=majority&appName=Cluster0', {
+      await mongoose.connect('mongodb+srv://dineshdvn123:dineshdvndvn@cluster0.yzilrsr.mongodb.net/aira_tech_db?retryWrites=true&w=majority&appName=Cluster0', {
       useNewUrlParser: true,
       useUnifiedTopology: true
     });
