@@ -1,18 +1,15 @@
-// config/db.js
 const mongoose = require('mongoose');
 
-const connectDB = async () => {
+const connectToDatabase = async () => {
   try {
-    // await mongoose.connect('mongodb://localhost:27017/aira_tech_db', {
-      await mongoose.connect('mongodb+srv://dineshdvn123:T3x33jF25Sff5B12@cluster0.yzilrsr.mongodb.net/aira_tech_db?retryWrites=true&w=majority&appName=Cluster0', {
+    await mongoose.connect('mongodb+srv://dineshdvn123:dineshdvndvn@cluster0.yzilrsr.mongodb.net/aira_tech_admin_db', {
       useNewUrlParser: true,
-      useUnifiedTopology: true
+      useUnifiedTopology: true,
     });
-    console.log('Connected to MongoDB Atlas');
-  } catch (err) {
-    console.error('Failed to connect to MongoDB Atlas', err);
-    process.exit(1); // Exit process with failure
+    console.log('Database connected successfully');
+  } catch (error) {
+    console.error('Database connection error:', error);
   }
 };
 
-module.exports = connectDB;
+module.exports = connectToDatabase;
