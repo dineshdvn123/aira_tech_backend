@@ -1,16 +1,19 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { Storage } = require('@google-cloud/storage');
+const mongoose = require('mongoose');
+const Grid = require('gridfs-stream');
 const Applicant = require('../models/applicants');
 const Job = require('../models/jobs');
 
-// Set up Google Cloud Storage
-const secretFilePath = '/Users/dineshkumar/madhu_babai/admin_website_development/aira_tech_backend/airatechresumestorage-be0f1e0739c8.json'; // Ensure this path is correct
-const projectId = 'airatechresumestorage';
-const gc = new Storage({ projectId, keyFilename: secretFilePath });
-const bucketName = 'aira_tech_bucket';
-const bucket = gc.bucket(bucketName);
+// Set up GridFS
+const conn = mongoose.connection;
+let gfs;
+
+conn.once('open', () => {
+  gfs = Grid(conn.db, mongoose.mongo);
+  gfs.collection('resumes'); // Set the collection name for storing resume files
+});
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
@@ -24,18 +27,19 @@ router.post('/apply/:jobId', upload.single('resume'), async (req, res) => {
     return res.status(400).send({ message: "No resume file uploaded." });
   }
 
-  const blob = bucket.file(Date.now() + '-' + req.file.originalname);
-  const blobStream = blob.createWriteStream({ resumable: false });
+  try {
+    // Store the file in GridFS
+    const writeStream = gfs.createWriteStream({
+      filename: Date.now() + '-' + req.file.originalname,
+      content_type: req.file.mimetype,
+    });
+    writeStream.write(req.file.buffer);
+    writeStream.end();
 
-  blobStream.on('error', (err) => {
-    console.error('Blob Stream Error:', err);
-    res.status(500).send({ message: 'Internal Server Error' });
-  });
+    writeStream.on('close', async (file) => {
+      const resumeId = file._id;
+      const resumeUrl = `/files/${resumeId}`;
 
-  blobStream.on('finish', async () => {
-    const resumeUrl = `https://storage.googleapis.com/${bucketName}/${blob.name}`;
-    
-    try {
       const existingApplicant = await Applicant.findOne({ email, JobId: jobId });
       if (existingApplicant) {
         return res.status(400).send({ message: "You have already applied for this position. We'll be in touch soon." });
@@ -60,13 +64,11 @@ router.post('/apply/:jobId', upload.single('resume'), async (req, res) => {
       await job.save();
 
       res.status(201).send({ message: "Thanks for applying! We'll review your application and contact you soon." });
-    } catch (error) {
-      console.error('Error applying for job:', error);
-      res.status(500).send({ message: 'Internal Server Error' });
-    }
-  });
-
-  blobStream.end(req.file.buffer);
+    });
+  } catch (error) {
+    console.error('Error applying for job:', error);
+    res.status(500).send({ message: 'Internal Server Error' });
+  }
 });
 
 // Retrieve applicants
@@ -97,19 +99,9 @@ router.get('/:id', async (req, res) => {
       .skip(skip)
       .limit(Number(pageSize));
 
-    const signedApplicants = await Promise.all(applicants.map(async (applicant) => {
-      try {
-        const resumeFile = bucket.file(applicant.resumeUrl.split('/').pop()); // Extract filename
-        const [url] = await resumeFile.getSignedUrl({
-          action: 'read',
-          expires: Date.now() + 1000 * 60 * 15, // URL expires in 15 minutes
-        });
-
-        return { ...applicant.toObject(), signedResumeUrl: url };
-      } catch (error) {
-        console.error('Error generating signed URL:', error);
-        return { ...applicant.toObject(), signedResumeUrl: null };
-      }
+    const signedApplicants = applicants.map((applicant) => ({
+      ...applicant.toObject(),
+      signedResumeUrl: `/files/${applicant.resumeUrl.split('/').pop()}`
     }));
 
     if (signedApplicants.length > 0) {
@@ -123,6 +115,18 @@ router.get('/:id', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// Serve resume files
+router.get('/files/:filename', (req, res) => {
+  gfs.files.findOne({ filename: req.params.filename }, (err, file) => {
+    if (!file || file.length === 0) {
+      return res.status(404).json({ err: 'No file exists' });
+    }
+
+    const readStream = gfs.createReadStream({ filename: file.filename });
+    readStream.pipe(res);
+  });
 });
 
 module.exports = router;

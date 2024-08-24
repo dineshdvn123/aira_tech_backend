@@ -6,7 +6,7 @@ const applicantSchema = new Schema({
   lastName: { type: String, required: true },
   email: { type: String, required: true },
   phone: { type: String, required: true },
-  resumeUrl: { type: String, required: true }, // Store URL or file path here
+  resumeUrl: { type: Schema.Types.ObjectId, ref: 'fs.files', required: true }, // Store GridFS file ID
   JobId: { type: Number, required: true },
 });
 
