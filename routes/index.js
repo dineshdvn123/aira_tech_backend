@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require("express");
 const router = express.Router();
 const multer = require('multer');
@@ -5,6 +6,8 @@ const fs = require('fs');
 const path = require('path');
 const Job = require("../models/jobs");
 const Applicant = require("../models/applicants"); 
+const { Client } = require('@microsoft/microsoft-graph-client');
+const { ConfidentialClientApplication } = require('@azure/msal-node');
 
 const { Storage } = require('@google-cloud/storage');
 
@@ -235,5 +238,85 @@ router.post('/apply/:jobId', upload.single('resume'), async (req, res) => {
 
   blobStream.end(req.file.buffer);
 });
+
+const msalConfig = {
+  auth: {
+    clientId: process.env.clientId, 
+    authority: `https://login.microsoftonline.com/${process.env.tenantId}`, 
+    clientSecret: process.env.clientSecret,
+  },
+};
+
+
+const cca = new ConfidentialClientApplication(msalConfig);
+
+// Function to get access token
+const getAccessToken = async () => {
+  const tokenRequest = {
+    scopes: ['https://graph.microsoft.com/.default'],
+  };
+
+  try {
+    const response = await cca.acquireTokenByClientCredential(tokenRequest);
+    return response.accessToken;
+  } catch (error) {
+    console.error('Failed to acquire token:', error);
+    throw error;
+  }
+};
+
+// Function to send an email using Microsoft Graph
+const sendMail = async (req, res) => {
+  const { name, email, phone, message } = req.body;
+
+  try {
+    const accessToken = await getAccessToken();
+
+    const client = Client.init({
+      authProvider: (done) => {
+        done(null, accessToken);
+      },
+    });
+
+    const mail = {
+      message: {
+        subject: 'New Contact Us Form Submission',
+        body: {
+          contentType: 'Text',
+          content: `Name: ${name}\nEmail: ${email}\nPhone: ${phone}\nMessage: ${message}`,
+        },
+        toRecipients: [
+          {
+            emailAddress: {
+              address: 'admin@airatechsolutions.com',
+            },
+          },
+        ],
+        ccRecipients: [
+          {
+            emailAddress: {
+              address: 'director@airatechsolutions.com',
+            },
+          },
+          {
+            emailAddress: {
+              address: 'hr@airatechsolutions.com',
+            },
+          },
+        ],
+      },
+    };
+
+    // Send the email
+    await client.api(`/users/${process.env.email}/sendMail`).post(mail);
+    res.status(200).send('Email sent successfully');
+  } catch (error) {
+    console.error('Error sending email:', error);
+    res.status(500).send('Failed to send email');
+  }
+};
+
+// Define a new route for sending emails
+router.post('/sendMail', sendMail);
 
 module.exports = router;
